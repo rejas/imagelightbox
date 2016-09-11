@@ -32,10 +32,9 @@
             element.css(options);
         },
 
-        hasTouch = ( 'ontouchstart' in window ),
         hasPointers = window.navigator.pointerEnabled || window.navigator.msPointerEnabled,
         wasTouched = function (event) {
-            if (hasTouch) {
+            if ( 'ontouchstart' in window ) {
                 return true;
             }
 
@@ -53,6 +52,19 @@
             }
 
             return false;
+        },
+
+        TouchClick = function ($element, callback) {
+            $element.on("click touchstart", function(event){
+                event.stopPropagation();
+                event.preventDefault();
+                if(event.handled !== true) {
+                    callback(event);
+                    event.handled = true;
+                } else {
+                    return false;
+                }
+            });
         };
 
     $.fn.imageLightbox = function (opts) {
@@ -495,9 +507,8 @@
 
         $(document).ready(function() {
             if (options.quitOnDocClick) {
-                $(document).on(hasTouch ? 'touchend' : 'click', function (e) {
+                TouchClick(document, function(e) {
                     if (image.length && !$(e.target).is(image)) {
-                        e.preventDefault();
                         quitLightbox();
                     }
                 });
