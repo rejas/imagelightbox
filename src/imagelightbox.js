@@ -55,7 +55,7 @@
         },
 
         TouchClick = function ($element, callback) {
-            $element.on("click touchstart", function(event){
+            $element.on("touchend click", function(event){
                 event.stopPropagation();
                 event.preventDefault();
                 if(event.handled !== true) {
@@ -507,7 +507,7 @@
 
         $(document).ready(function() {
             if (options.quitOnDocClick) {
-                TouchClick(document, function(e) {
+                TouchClick($(document), function(e) {
                     if (image.length && !$(e.target).is(image)) {
                         quitLightbox();
                     }
