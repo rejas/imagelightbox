@@ -45,6 +45,10 @@
         $wrapper = $('<div/>', {
             class: 'imagelightbox-wrapper'
         }),
+        $fullscreenNotice = $('<div/>', {
+            text:  'Press [ENTER] for fullscreen',
+            class: 'imagelightbox-fullscreen'
+        }),
         $body = $('body');
 
     var cssTransitionSupport = function () {
@@ -99,9 +103,9 @@
 
         fullscreenSupport = function () {
             return !!(document.fullscreenEnabled ||
-                document.webkitFullscreenEnabled ||
-                document.mozFullScreenEnabled ||
-                document.msFullscreenEnabled);
+                      document.webkitFullscreenEnabled ||
+                      document.mozFullScreenEnabled ||
+                      document.msFullscreenEnabled);
         },
         hasFullscreenSupport = fullscreenSupport() !== false,
         hasHistorySupport = !!(window.history && history.pushState);
@@ -156,6 +160,9 @@
                 }
                 if (options.caption) {
                     $wrapper.append($captionObject);
+                }
+                if (options.fullscreen && hasFullscreenSupport) {
+                    $wrapper.append($fullscreenNotice);
                 }
             },
             _onLoadStart = function () {
@@ -610,6 +617,9 @@
                 $body.append($wrapper)
                     .addClass('imagelightbox-open');
                 $wrapper.trigger('start.ilb2', $target);
+                if (options.fullscreen && hasFullscreenSupport) {
+                    $fullscreenNotice.fadeIn(600).delay(800).fadeOut(600);
+                }
                 _loadImage(0);
             },
 
@@ -775,7 +785,7 @@
 
         function toggleFullScreen() {
             launchIntoFullscreen(document.getElementById(options.id).parentElement) ||
-            exitFullscreen();
+                exitFullscreen();
         }
 
         $(document).off('click', options.selector);

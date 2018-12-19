@@ -14,6 +14,19 @@
     overflow: hidden;
 }
 
+.imagelightbox-fullscreen {
+    z-index: 11000;
+    font-size: 2rem;
+    position: fixed;
+    bottom: 2%;
+    right: 2%;
+    box-shadow: 0 0 0.2em 0 rgba(255,255,255,0.75);
+    padding: 0.5em;
+    background: rgba(112, 128, 144, 1);
+    color: white;
+    display: none;
+}
+
 /* WITH ACTIVITY INDICATION */
 
 .imagelightbox-loading,
