@@ -1,8 +1,9 @@
 imagelightbox
 =============
 
-[![Greenkeeper badge](https://badges.greenkeeper.io/rejas/imagelightbox.svg)](https://greenkeeper.io/)
+[![npm version](https://badge.fury.io/js/imagelightbox.svg)](https://badge.fury.io/js/imagelightbox)
 [![Build Status](https://secure.travis-ci.org/rejas/imagelightbox.png?branch=master)](http://travis-ci.org/rejas/imagelightbox)
+[![Greenkeeper badge](https://badges.greenkeeper.io/rejas/imagelightbox.svg)](https://greenkeeper.io/)
 
 Image Lightbox, Responsive and Touch‑friendly.
 
@@ -37,14 +38,15 @@ The list of options and their default values is:
 $( selector ).imageLightbox({
     selector:       'a[data-imagelightbox]', // string;
     id:             'imagelightbox',         // string;
-    allowedTypes:   'png|jpg|jpeg||gif',     // string; * NOT WORKING ATM *
+    allowedTypes:   'png|jpg|jpeg|gif',      // string;          use empty string to allow any file type
     animationSpeed: 250,                     // integer;
     activity:       false,                   // bool;            show activity indicator
     arrows:         false,                   // bool;            show left/right arrows
     button:         false,                   // bool;            show close button
     caption:        false,                   // bool;            show captions
     enableKeyboard: true,                    // bool;            enable keyboard shortcuts (arrows Left/Right and Esc)
-    fullscreen:     true                     // bool;            enable fullscreen (enter/return key)
+    history:        false,                   // bool;            enable image permalinks and history
+    fullscreen:     false                    // bool;            enable fullscreen (enter/return key)
     gutter:         10,                      // integer;         window height less height of image as a percentage
     offsetY:        0,                       // integer;         vertical offset in terms of gutter
     navigation:     false,                   // bool;            show navigation
@@ -105,6 +107,16 @@ add an "ilb2-caption" data-attribute to the element, fallback value is the alt-a
 Simply set the `fullscreen` option to true to enable the option. If the user's browser supports the fullscreen API, 
 they can switch to fullscreen mode by pressing enter.
 
+## Video
+
+Video can be displayed in imagelightbox, by including a `data-ilb2-video` attribute in the link. This attribute should contain a JSON-encoded list of parameters as they would be in an HTML5 video tag. For multiple video sources, the `sources` field can be added, containing a list of similarily encoded HTML5 source tags.
+
+````html
+    <a data-ilb2-video='{"controls":"controls", "autoplay":"autoplay", "sources":[{"src":"images/video.m4v", "type":"video/mp4"}]}' data-imagelightbox="x">
+	    <img src="images/video-thumb.jpg">
+    </a>
+````
+
 ## Hooks
 
 Image Lightbox now triggers unique events upon start, finish, and when either the next or previous image is requested.
@@ -113,14 +125,17 @@ These events are, respectively, "start.ilb2", "quit.ilb2", "loaded.ilb2", "next.
 Usage example:
 ````javascript
  $(document)
-    .on("start.ilb2", function () {
-    console.log("Image Lightbox has started.");
+    .on("start.ilb2", function (_, e) {
+    console.log("Image Lightbox has started on element: ");
+    console.log(e);
     })
-    .on("next.ilb2", function () {
-    console.log("Next image");
+    .on("next.ilb2", function (_, e) {
+    console.log("Next image: ");
+    console.log(e);
     })
-    .on("previous.ilb2", function () {
-    console.log("Previous image");
+    .on("previous.ilb2", function (_, e) {
+    console.log("Previous image: ");
+    console.log(e);
     })
     .on("quit.ilb2", function () {
     console.log("Image Lightbox has quit.");
@@ -201,31 +216,39 @@ imageLightBox allows adding more images dynamically at runtime
 </script>
 ````
 
-## Deep linking
+## Permalinks & History
 
-Open imageLightBox with a specific image
+When history is enabled, upon clicking on an image, the query field `imageLightboxIndex=X` is added to the URL, where `X` is the index of the currently opened image. This means that such an URL can be copied and used as a permanent link to that particular image. When somebody opens the URL, the lightbox will be open on the image in question. This also works with multiple sets, where an aditional query field `imageLightboxSet=Y` is used to distinguish between the sets in one page.
+
+In some cases, this could lead to a different image being opened, for example if new images have been added to the set, or if the order of the images has changed. To solve this issue, whenever the HTML attribute `data-ilb2-id=X` is present in the image tag, this value is used instead of the image index (this means this id has to be different for each image and mustn't change over time).
 
 ###### Example:
 
-````javascript
+```javascript
 <script src="jquery.js"></script>
 <script src="imagelightbox.js"></script>
+
+<a href="image1.jpg" data-imagelightbox="images" data-ilb2-id="img1"><img src="thumb1.jpg"></a>
+<a href="image2.jpg" data-imagelightbox="images" data-ilb2-id="img2"><img src="thumb2.jpg"></a>
+<a href="image3.jpg" data-imagelightbox="images" data-ilb2-id="img3"><img src="thumb3.jpg"></a>
+
 <script>
     $( function()
     {
-        // location: http://example.org/galleries/123#showImage_1
-        var hashData = $(location).attr('hash').substring(1).split('_');
-        if (hashData.length > 0 && hashData[0] === 'showImage')
-        {
-            // start imagelightbox with this image
-            var image = $('selector[data-ilb2-id="' + hashData[1] + '"]');
-            var lightboxInstance = $( selector ).imageLightbox();
-            lightboxInstance.startImageLightbox(image);
-        }
+        $('a[data-imagelightbox="images"]').imageLightbox({
+            history: true
+        });
     });
 </script>
-````
+```
+
+If you want a dynamically added image to be opened after the page load, you have to call `gallery.openHistory()` on the ImageLightbox object yourself after adding the image.
 
 ## Changelog
 
 You can find all notable changes to this project in the [CHANGELOG.md](CHANGELOG.md).
+
+
+## See also
+
+Used by https://wordpress.org/plugins/skaut-google-drive-gallery/

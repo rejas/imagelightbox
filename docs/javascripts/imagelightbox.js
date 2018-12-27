@@ -1,7 +1,3 @@
-//
-// By Osvaldas Valutis, www.osvaldas.info
-// Available for use under the MIT License
-//
 (function (factory) {
     // http://blog.npmjs.org/post/112712169830/making-your-jquery-plugin-work-better-with-npm
     // If there is a variable named module and it has an exports property,
@@ -32,7 +28,8 @@
             class: 'imagelightbox-caption',
             html: '&nbsp;'
         }),
-        $buttonObject =  $('<a/>', {
+        $buttonObject =  $('<button/>', {
+            type: 'button',
             class: 'imagelightbox-close'
         }),
         $overlayObject = $('<div/>', {
@@ -73,11 +70,11 @@
         cssTransitionTranslateX = function (element, positionX, speed) {
             var options = {}, prefix = cssTransitionSupport();
             options[prefix + 'transform'] = 'translateX(' + positionX + ') translateY(-50%)';
-            options[prefix + 'transition'] = prefix + 'transform ' + speed + 's linear';
+            options[prefix + 'transition'] = prefix + 'transform ' + speed + 's ease-in';
             element.css(options);
         },
 
-        hasTouch = ( 'ontouchstart' in window ),
+        hasTouch = ('ontouchstart' in window),
         hasPointers = window.navigator.pointerEnabled || window.navigator.msPointerEnabled,
         wasTouched = function (event) {
             if (hasTouch) {
@@ -102,24 +99,36 @@
 
         fullscreenSupport = function () {
             return !!(document.fullscreenEnabled ||
-                    document.webkitFullscreenEnabled ||
-                    document.mozFullScreenEnabled ||
-                    document.msFullscreenEnabled);
-
+                document.webkitFullscreenEnabled ||
+                document.mozFullScreenEnabled ||
+                document.msFullscreenEnabled);
         },
-        hasFullscreenSupport = fullscreenSupport() !== false;
+        hasFullscreenSupport = fullscreenSupport() !== false,
+        hasHistorySupport = !!(window.history && history.pushState);
 
     $.fn.imageLightbox = function (opts) {
-        var options = $.extend({
+        var targetSet = '',
+            targets = $([]),
+            target = $(),
+            videos = $([]),
+            targetIndex = -1,
+            image = $(),
+            imageWidth = 0,
+            imageHeight = 0,
+            swipeDiff = 0,
+            inProgress = false,
+            currentIndex = 0,
+            options = $.extend({
                 selector:       'a[data-imagelightbox]',
                 id:             'imagelightbox',
-                allowedTypes:   'png|jpg|jpeg|gif', // TODO make it work again
+                allowedTypes:   'png|jpg|jpeg|gif',
                 animationSpeed: 250,
                 activity:       false,
                 arrows:         false,
                 button:         false,
                 caption:        false,
                 enableKeyboard: true,
+                history:        false,
                 fullscreen:     false,
                 gutter:         10,     // percentage of client height
                 offsetY:        0,      // percentage of gutter
@@ -131,6 +140,7 @@
                 quitOnDocClick: true,
                 quitOnEscKey:   true
             }, opts),
+
             _onStart = function () {
                 if (options.arrows) {
                     arrowsOn(this);
@@ -164,8 +174,120 @@
                     $arrows.css('display', 'block');
                 }
             },
+            _addQueryField = function (query, key, value) {
+                var newField = key + '=' + value;
+                var newQuery = '?' + newField;
+
+                if (query) {
+                    var keyRegex = new RegExp('([?&])' + key + '=[^&]*');
+                    if (query.match(keyRegex) !== null) {
+                        newQuery = query.replace(keyRegex, '$1' + newField);
+                    } else {
+                        newQuery = query + '&' + newField;
+                    }
+                }
+                return newQuery;
+            },
+            _pushToHistory = function () {
+                if(!hasHistorySupport || !options.history) {
+                    return;
+                }
+                var newIndex = targets[targetIndex].dataset.ilb2Id;
+                if(!newIndex) {
+                    newIndex = targetIndex;
+                }
+                var newState = {imageLightboxIndex: newIndex};
+                var set = targets[targetIndex].dataset.imagelightbox;
+                if(set) {
+                    newState.imageLightboxSet = set;
+                }
+                var newQuery = _addQueryField(document.location.search, 'imageLightboxIndex', newIndex);
+                if(set) {
+                    newQuery = _addQueryField(newQuery, 'imageLightboxSet', set);
+                }
+                window.history.pushState(newState, '', document.location.pathname + newQuery);
+            },
+            _removeQueryField = function(query, key) {
+                var newQuery = query;
+                if (newQuery) {
+                    var keyRegex1 = new RegExp('[?]' + key + '=[^&]*');
+                    var keyRegex2 = new RegExp('&' + key + '=[^&]*');
+                    newQuery = newQuery.replace(keyRegex1, '?');
+                    newQuery = newQuery.replace(keyRegex2, '');
+                }
+                return newQuery;
+            },
+            _pushQuitToHistory = function () {
+                if(!hasHistorySupport || !options.history) {
+                    return;
+                }
+                var newQuery = _removeQueryField(document.location.search, 'imageLightboxIndex');
+                newQuery = _removeQueryField(newQuery, 'imageLightboxSet');
+                window.history.pushState({}, '', document.location.pathname + newQuery);
+            },
+            _getQueryField = function(key) {
+                var keyValuePair = new RegExp('[?&]' + key + '(=([^&#]*)|&|#|$)').exec(document.location.search);
+                if(!keyValuePair || !keyValuePair[2]) {
+                    return undefined;
+                }
+                return decodeURIComponent(keyValuePair[2].replace(/\+/g, ' '));
+            },
+            _openHistory = function () {
+                if(!hasHistorySupport || !options.history) {
+                    return;
+                }
+                var id = _getQueryField('imageLightboxIndex');
+                if(!id) {
+                    return;
+                }
+                var element = targets.filter('[data-ilb2-id="' + id + '"]');
+                if(element.length > 0) {
+                    targetIndex = targets.index(element);
+                } else {
+                    targetIndex = id;
+                    element = $(targets[targetIndex]);
+                }
+                var set = _getQueryField('imageLightboxSet');
+                if(!element[0] || (!!set && set !== element[0].dataset.imagelightbox)) {
+                    return;
+                }
+                _openImageLightbox(element, true);
+            },
+            _popHistory = function (event) {
+                var newState = event.originalEvent.state;
+                if(!newState) {
+                    _quitImageLightbox(true);
+                    return;
+                }
+                var newId = newState.imageLightboxIndex;
+                if(newId === undefined) {
+                    _quitImageLightbox(true);
+                    return;
+                }
+                var element = targets.filter('[data-ilb2-id="' + newId + '"]');
+                if(element.length > 0) {
+                    var newIndex = targets.index(element);
+                } else {
+                    newIndex = newId;
+                    element = $(targets[newIndex]);
+                }
+                if(!element[0] || (newState.imageLightboxSet && newState.imageLightboxSet !== element[0].dataset.imagelightbox)) {
+                    return;
+                }
+                if(targetIndex < 0) {
+                    _openImageLightbox(element, true);
+                    return;
+                }
+                var direction = +1;
+                if(newIndex > targetIndex) {
+                    direction = -1;
+                }
+                target = element;
+                targetIndex = newIndex;
+                _loadImage(direction);
+            },
             _previousTarget = function () {
-                var targetIndex = targets.index(target) - 1;
+                targetIndex--;
                 if (targetIndex < 0) {
                     if (options.quitOnEnd === true) {
                         _quitImageLightbox();
@@ -176,11 +298,12 @@
                     }
                 }
                 target = targets.eq(targetIndex);
-                $wrapper.trigger('previous.ilb2');
+                _pushToHistory();
+                $wrapper.trigger('previous.ilb2', target);
                 _loadImage(+1);
             },
             _nextTarget = function () {
-                var targetIndex = targets.index(target) + 1;
+                targetIndex++;
                 if (targetIndex >= targets.length) {
                     if (options.quitOnEnd === true) {
                         _quitImageLightbox();
@@ -190,8 +313,9 @@
                         targetIndex = 0;
                     }
                 }
+                _pushToHistory();
                 target = targets.eq(targetIndex);
-                $wrapper.trigger('next.ilb2');
+                $wrapper.trigger('next.ilb2', target);
                 _loadImage(-1);
             },
             activityIndicatorOn = function () {
@@ -261,82 +385,23 @@
                     return false;
                 });
             },
-            targetSet = '',
-            targets = $([]),
-            target = $(),
-            image = $(),
-            imageWidth = 0,
-            imageHeight = 0,
-            swipeDiff = 0,
-            inProgress = false,
-            currentIndex = 0,
 
-            isTargetValid = function (validImage) {
-                var allowedTypes = options.allowedTypes;
-
-                //test that RegExp is restricted to disjunction format
-                var isGoodRE = /^(?!\|)[\w|]+(?!\|)$/.test(allowedTypes);
-                //
-                if (!isGoodRE) {
-                    //allowedTypes = 'png|jpg|jpeg|gif';
-                    return false;
-                }
-                //
-                var URL = validImage.attr('href');
-                var ext = parseURL(URL).pathname;
-                var re = new RegExp(allowedTypes,'i');
-                //
-                var isAllowed = re.test(ext);
-                // function by Cory LaViska
-                function parseURL(url) {
-                    var parser = document.createElement('a'),
-                        searchObject = {},
-                        queries, split, i;
-                    // Let the browser do the work
-                    parser.href = url;
-                    // Convert query string to object
-                    queries = parser.search.replace(/^\?/, '').split('&');
-                    for( i = 0; i < queries.length; i++ ) {
-                        split = queries[i].split('=');
-                        searchObject[split[0]] = split[1];
-                    }
-                    return {
-                        protocol: parser.protocol,
-                        host: parser.host,
-                        hostname: parser.hostname,
-                        port: parser.port,
-                        pathname: parser.pathname,
-                        search: parser.search,
-                        searchObject: searchObject,
-                        hash: parser.hash
-                    };
-                }
-                return isAllowed;
+            isTargetValid = function (element) {
+                // eslint-disable-next-line
+                return $(element).prop('tagName').toLowerCase() === 'a' && ((new RegExp('\.(' + options.allowedTypes + ')$', 'i')).test($(element).attr('href')) || $(element).data('ilb2Video'));
             },
-
-            // TODO make it work again
-            // isTargetValid = function (element) {
-            //   var classic = $(element).prop('tagName').toLowerCase() === 'a' && ( new RegExp('.(' + options.allowedTypes + ')$', 'i') ).test($(element).attr('href'));
-            //   var html5 = $(element).attr('data-lightbox') !== undefined;
-            //   return classic || html5;
-            // },
 
             _setImage = function () {
                 if (!image.length) {
                     return true;
                 }
-                var captionHeight = options.caption ? $captionObject.outerHeight() : 0;
 
-                var screenWidth = $(window).width(),
+                var captionHeight = options.caption ? $captionObject.outerHeight() : 0,
+                    screenWidth = $(window).width(),
                     screenHeight = $(window).height() - captionHeight,
-                    gutterFactor = Math.abs(1 - options.gutter/100),
-                    tmpImage = new Image();
+                    gutterFactor = Math.abs(1 - options.gutter/100);
 
-                tmpImage.src = image.attr('src');
-                tmpImage.onload = function () {
-                    imageWidth = tmpImage.width;
-                    imageHeight = tmpImage.height;
-
+                function setSizes () {
                     if (imageWidth > screenWidth || imageHeight > screenHeight) {
                         var ratio = imageWidth / imageHeight > screenWidth / screenHeight ? imageWidth / screenWidth : imageHeight / screenHeight;
                         imageWidth /= ratio;
@@ -353,6 +418,21 @@
                         'top': cssTop + 'px',
                         'left':  cssLeft + 'px'
                     });
+                }
+
+                if(image.get(0).videoWidth !== undefined) {
+                    imageWidth = image.get(0).videoWidth;
+                    imageHeight = image.get(0).videoHeight;
+                    setSizes();
+                    return;
+                }
+
+                var tmpImage = new Image();
+                tmpImage.src = image.attr('src');
+                tmpImage.onload = function() {
+                    imageWidth = tmpImage.width;
+                    imageHeight = tmpImage.height;
+                    setSizes();
                 };
             },
 
@@ -364,10 +444,10 @@
                 if (image.length) {
                     var params = {'opacity': 0};
                     if (hasCssTransitionSupport) {
-                        cssTransitionTranslateX(image, ( 100 * direction ) - swipeDiff + 'px', options.animationSpeed / 1000);
+                        cssTransitionTranslateX(image, (100 * direction) - swipeDiff + 'px', options.animationSpeed / 1000);
                     }
                     else {
-                        params.left = parseInt(image.css('left')) + 100 * direction + 'px';
+                        params.left = parseInt(image.css('left')) + (100 * direction) + 'px';
                     }
                     image.animate(params, options.animationSpeed, function () {
                         _removeImage();
@@ -379,47 +459,8 @@
                 _onLoadStart();
 
                 setTimeout(function () {
-                    var imgPath = target.attr('href');
-                    // if ( imgPath === undefined ) {
-                    //     imgPath = target.attr( 'data-lightbox' );
-                    // }
-                    image = $('<img id=\'' + options.id + '\' />')
-                        .attr('src', imgPath)
-                        .on('load.ilb7', function () {
-                            var params = {'opacity': 1};
-
-                            image.appendTo($wrapper);
-                            _setImage();
-                            image.css('opacity', 0);
-                            if (hasCssTransitionSupport) {
-                                cssTransitionTranslateX(image, -100 * direction + 'px', 0);
-                                setTimeout(function () {
-                                    cssTransitionTranslateX(image, 0 + 'px', options.animationSpeed / 1000);
-                                }, 50);
-                            } else {
-                                var imagePosLeft = parseInt(image.css('left'));
-                                params.left = imagePosLeft + 'px';
-                                image.css('left', imagePosLeft - 100 * direction + 'px');
-                            }
-
-                            image.animate(params, options.animationSpeed, function () {
-                                inProgress = false;
-                                _onLoadEnd();
-                            });
-                            if (options.preloadNext) {
-                                var nextTarget = targets.eq(targets.index(target) + 1);
-                                if (!nextTarget.length) {
-                                    nextTarget = targets.eq(0);
-                                }
-                                $('<img />').attr('src', nextTarget.attr('href'));
-                            }
-                            $wrapper.trigger('loaded.ilb2');
-                        })
-                        .on('error.ilb7', function () {
-                            _onLoadEnd();
-                        });
-
-                    var swipeStart = 0,
+                    var imgPath = target.attr('href'),
+                        swipeStart = 0,
                         swipeEnd = 0,
                         imagePosLeft = 0,
                         scaling = false,
@@ -430,22 +471,82 @@
                         zoomRatio = 1,
                         zoomBase = 1;
 
-                    image.on(hasPointers ? 'pointerup.ilb7 MSPointerUp.ilb7' : 'click.ilb7', function (e) {
-                        e.preventDefault();
-                        if (options.quitOnImgClick) {
-                            _quitImageLightbox();
-                            return false;
-                        }
-                        if (wasTouched(e.originalEvent)) {
-                            return true;
-                        }
-                        var posX = ( e.pageX || e.originalEvent.pageX ) - e.target.offsetLeft;
-                        if (imageWidth / 2 > posX) {
-                            _previousTarget();
+                    // if (imgPath === undefined) {
+                    //     imgPath = target.attr('data-lightbox');
+                    // }
+
+                    var videoOptions = target.data('ilb2Video');
+                    var preloadedVideo, element;
+                    if (videoOptions) {
+                        videos.each(function() {
+                            if(this.i === target.data('ilb2VideoId')) {
+                                preloadedVideo = this.l;
+                                element = this.e;
+                                if(this.a) {
+                                    if(preloadedVideo === false) {
+                                        element.attr('autoplay', this.a);
+                                    }
+                                    if(preloadedVideo === true) {
+                                        element.get(0).play();
+                                    }
+                                }
+                            }
+                        });
+                    } else {
+                        element = $('<img id=\'' + options.id + '\' />')
+                            .attr('src', imgPath);
+                    }
+                    function onload () {
+                        var params = {'opacity': 1};
+
+                        image.appendTo($wrapper);
+                        _setImage();
+                        image.css('opacity', 0);
+                        if (hasCssTransitionSupport) {
+                            cssTransitionTranslateX(image, -100 * direction + 'px', 0);
+                            setTimeout(function () {
+                                cssTransitionTranslateX(image, 0 + 'px', options.animationSpeed / 1000);
+                            }, 50);
                         } else {
-                            _nextTarget();
+                            var imagePosLeft = parseInt(image.css('left'));
+                            params.left = imagePosLeft + 'px';
+                            image.css('left', imagePosLeft - 100 * direction + 'px');
                         }
-                    })
+
+                        image.animate(params, options.animationSpeed, function () {
+                            inProgress = false;
+                            _onLoadEnd();
+                        });
+                        if (options.preloadNext) {
+                            var nextTarget = targets.eq(targets.index(target) + 1);
+                            if (!nextTarget.length) {
+                                nextTarget = targets.eq(0);
+                            }
+                            $('<img />').attr('src', nextTarget.attr('href'));
+                        }
+                        $wrapper.trigger('loaded.ilb2');
+                    }
+                    image = element
+                        .on('load.ilb7', onload)
+                        .on('error.ilb7', function () {
+                            _onLoadEnd();
+                        })
+                        .on(hasPointers ? 'pointerup.ilb7 MSPointerUp.ilb7' : 'click.ilb7', function (e) {
+                            e.preventDefault();
+                            if (options.quitOnImgClick) {
+                                _quitImageLightbox();
+                                return false;
+                            }
+                            if (wasTouched(e.originalEvent)) {
+                                return true;
+                            }
+                            var posX = (e.pageX || e.originalEvent.pageX) - e.target.offsetLeft;
+                            if (imageWidth / 2 > posX) {
+                                _previousTarget();
+                            } else {
+                                _nextTarget();
+                            }
+                        })
                         .on('touchstart.ilb7 pointerdown.ilb7 MSPointerDown.ilb7', function (e) {
                             if (!wasTouched(e.originalEvent) || options.quitOnImgClick) {
                                 return true;
@@ -547,9 +648,16 @@
                                 }
                             }
                         });
+                    if(preloadedVideo === true) {
+                        onload();
+                    }
+                    if(preloadedVideo === false) {
+                        image = image.on('loadedmetadata.ilb7', onload);
+                    }
 
                 }, options.animationSpeed + 100);
             },
+
             _removeImage = function () {
                 if (!image.length) {
                     return false;
@@ -558,20 +666,28 @@
                 image = $();
             },
 
-            _openImageLightbox = function ($target) {
+            _openImageLightbox = function ($target, noHistory) {
                 if (inProgress) {
                     return false;
                 }
                 inProgress = false;
                 target = $target;
+                targetIndex = targets.index(target);
+                if(!noHistory) {
+                    _pushToHistory();
+                }
                 _onStart();
                 $body.append($wrapper)
                     .addClass('imagelightbox-open');
-                $wrapper.trigger('start.ilb2');
+                $wrapper.trigger('start.ilb2', $target);
                 _loadImage(0);
             },
 
-            _quitImageLightbox = function () {
+            _quitImageLightbox = function (noHistory) {
+                targetIndex = -1;
+                if(!noHistory) {
+                    _pushQuitToHistory();
+                }
                 $wrapper.trigger('quit.ilb2');
                 $body.removeClass('imagelightbox-open');
                 if (!image.length) {
@@ -580,12 +696,14 @@
                 image.animate({'opacity': 0}, options.animationSpeed, function () {
                     _removeImage();
                     inProgress = false;
-                    targets = $([]);
                     $wrapper.remove().find('*').remove();
                 });
             },
 
-            _addTargets = function( newTargets ) {
+            _addTargets = function (newTargets) {
+                newTargets.each(function() {
+                    targets = newTargets.add($(this));
+                });
                 newTargets.on('click.ilb7', {set: targetSet}, function (e) {
                     e.preventDefault();
                     targetSet = $(e.currentTarget).data('imagelightbox');
@@ -608,9 +726,46 @@
                             targets = targets.add($(this));
                         });
                 }
+            },
+
+            _preloadVideos = function () {
+                targets.each(function() {
+                    var videoOptions = $(this).data('ilb2Video');
+                    if (videoOptions) {
+                        var id = $(this).data('ilb2Id');
+                        if(!id) {
+                            id = 'a' + (((1+Math.random())*0x10000)|0).toString(16); // Random id
+                        }
+                        $(this).data('ilb2VideoId', id);
+                        var container = {e: $('<video id=\'' + options.id + '\' preload=\'metadata\'>'), i: id, l: false, a: undefined}; // e = element, i = id, l = is metadata loaded, a = autoplay
+                        $.each(videoOptions, function(key, value) {
+                            if(key === 'autoplay') {
+                                container.a = value;
+                            } else if(key !== 'sources') {
+                                container.e = container.e.attr(key, value);
+                            }
+                        });
+                        if(videoOptions.sources) {
+                            $.each(videoOptions.sources, function (_, source) {
+                                var sourceElement = $('<source>');
+                                $.each(source, function(key, value) {
+                                    sourceElement = sourceElement.attr(key, value);
+                                });
+                                container.e.append(sourceElement);
+                            });
+                        }
+                        container.e.on('loadedmetadata.ilb7', function() {
+                            container.l = true;
+                        });
+                        videos = videos.add(container);
+                    }
+                });
             };
 
         $(window).on('resize.ilb7', _setImage);
+        if(hasHistorySupport && options.history) {
+            $(window).on('popstate', _popHistory);
+        }
 
         $(document).ready(function() {
 
@@ -690,15 +845,23 @@
 
         function toggleFullScreen() {
             launchIntoFullscreen(document.getElementById(options.id).parentElement) ||
-                exitFullscreen();
+            exitFullscreen();
         }
 
         $(document).off('click', options.selector);
 
         _addTargets($(this));
 
-        this.addToImageLightbox = function(elements)  {
+        _openHistory();
+
+        _preloadVideos();
+
+        this.addToImageLightbox = function (elements)  {
             _addTargets(elements);
+        };
+
+        this.openHistory = function() {
+            _openHistory();
         };
 
         this.loadPreviousImage = function () {
