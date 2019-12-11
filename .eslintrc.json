@@ -1,12 +1,24 @@
 {
+    "parserOptions": {
+        "project": "./tsconfig.json",
+        "sourceType": "script"
+    },
     "env": {
         "browser": true,
-        "node": true
+        "node": false
     },
+    "plugins": [
+        "@typescript-eslint"
+    ],
     "globals": {
         "jQuery": true
     },
-    "extends": "eslint:recommended",
+    "extends": [
+        "eslint:recommended",
+        "plugin:@typescript-eslint/eslint-recommended",
+        "plugin:@typescript-eslint/recommended",
+        "plugin:@typescript-eslint/recommended-requiring-type-checking"
+    ],
     "rules": {
         "indent": [
             "error",
@@ -26,6 +38,13 @@
         "semi": [
             "error",
             "always"
-        ]
+        ],
+        "@typescript-eslint/array-type": ["error", {"default": "generic"}],
+        "@typescript-eslint/member-ordering": "error",
+        "@typescript-eslint/no-extraneous-class": "error",
+        "@typescript-eslint/no-namespace": ["error", {"allowDeclarations": true}],
+        "@typescript-eslint/no-non-null-assertion": "off",
+        "@typescript-eslint/no-use-before-define": "off",
+        "@typescript-eslint/unbound-method": "off"
     }
 }
