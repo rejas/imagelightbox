@@ -4,8 +4,6 @@ var gulp            = require('gulp'),
     connect         = require('gulp-connect'),
     csslint         = require('gulp-csslint'),
     eslint          = require('gulp-eslint'),
-    lintspaces      = require('gulp-lintspaces'),
-    nightwatch      = require('gulp-nightwatch'),
     rename          = require('gulp-rename'),
     uglify          = require('gulp-uglify');
 
@@ -23,19 +21,12 @@ gulp.task('copy:css', gulp.series('csslint', function() {
 gulp.task('minify:css', gulp.series('copy:css', function() {
     return gulp.src('src/imagelightbox.css')
         .pipe(autoprefixer({
-            browsers: ['last 2 versions', 'ie >= 9', 'Firefox ESR', 'Android >= 2.3'],
             cascade: false
         }))
         .pipe(cleanCSS())
         .pipe(rename('imagelightbox.min.css'))
         .pipe(gulp.dest('dist/'));
 }));
-
-gulp.task('editorconfig', function() {
-    return gulp.src('src/imagelightbox.js')
-        .pipe(lintspaces({editorconfig: './.editorconfig'}))
-        .pipe(lintspaces.reporter());
-});
 
 gulp.task('eslint', function() {
     return gulp.src('src/imagelightbox.js')
@@ -44,7 +35,7 @@ gulp.task('eslint', function() {
         .pipe(eslint.failAfterError());
 });
 
-gulp.task('copy:js',  gulp.series('editorconfig', 'eslint', function() {
+gulp.task('copy:js',  gulp.series('eslint', function() {
     return gulp.src('src/imagelightbox.js')
         .pipe(gulp.dest('docs/javascripts/'));
 }));
@@ -63,22 +54,11 @@ gulp.task('watch', function(done) {
     done();
 });
 
-gulp.task('serve', gulp.parallel('build', 'watch', function(done) {
+gulp.task('dev', gulp.parallel('build', 'watch', function(done) {
     connect.server({
         livereload: true
     });
     done();
 }));
 
-gulp.task('night:js', gulp.series('serve', function() {
-    return gulp.src('./gulpfile.js')
-        .pipe(nightwatch({
-            configFile: './nightwatch.json'
-        }));
-}));
-
 gulp.task('default', gulp.series('build'));
-
-gulp.task('dev', gulp.series('serve'));
-
-gulp.task('test', gulp.series('night:js'));

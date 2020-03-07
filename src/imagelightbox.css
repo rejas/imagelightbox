@@ -131,6 +131,7 @@
     right: 0;
     bottom: 0;
     padding: 0.625em; /* 10 */
+    transition: opacity .25s ease;
 }
 
 /* WITH NAVIGATION */
@@ -158,7 +159,12 @@
 }
 
 .imagelightbox-nav .active {
+    animation: fade-in 0.45s linear;
     background-color: #fff;
+}
+
+.imagelightbox-navitem:active {
+    background: #808080;
 }
 
 /* WITH ARROWS */
@@ -214,7 +220,7 @@
 .imagelightbox-close,
 .imagelightbox-nav,
 .imagelightbox-arrow {
-    animation: fade-in .25s linear;
+    animation: fade-in 0.25s linear;
 }
 
 @keyframes fade-in {

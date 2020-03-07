@@ -1,35 +1,45 @@
 {
   "name": "imagelightbox",
-  "version": "0.13.0",
+  "version": "1.0.2",
   "description": "Image Lightbox, Responsive and Touch‑friendly",
-  "homepage": "https://rejas.github.io/imagelightbox",
+  "homepage": "https://marekdedic.github.io/imagelightbox",
   "license": "MIT",
-  "repository": "https://github.com/rejas/imagelightbox.git",
+  "repository": "https://github.com/marekdedic/imagelightbox.git",
   "main": "./src/imagelightbox.js",
   "style": "./src/imagelightbox.css",
   "dependencies": {
     "jquery": ">=1.12.4 <4.0.0"
   },
   "devDependencies": {
-    "gulp": "^4.0.0",
-    "gulp-autoprefixer": "^6.0.0",
-    "gulp-clean-css": "^4.0.0",
+    "chai": "^4.2.0",
+    "express": "^4.17.1",
+    "gulp": "^4.0.2",
+    "gulp-autoprefixer": "^7.0.0",
+    "gulp-clean-css": "^4.2.0",
     "gulp-connect": "^5.7.0",
     "gulp-csslint": "^1.0.1",
-    "gulp-eslint": "^5.0.0",
-    "gulp-lintspaces": "^1.0.0",
-    "gulp-nightwatch": "^1.0.1",
-    "gulp-rename": "^1.4.0",
-    "gulp-uglify": "^3.0.1"
+    "gulp-eslint": "^6.0.0",
+    "gulp-rename": "^2.0.0",
+    "gulp-uglify": "^3.0.2",
+    "mocha": "^7.0.0",
+    "puppeteer": "^2.0.0"
   },
   "keywords": [
     "jquery",
     "lightbox"
   ],
   "scripts": {
-    "check": "eslint src/**/*.js",
-    "fix": "eslint src/**/*.js --fix",
+    "build": "gulp",
     "start": "gulp dev",
-    "test": "gulp test"
-  }
+    "fix:js": "eslint --fix src/**/*.js",
+    "test": "npm run test:js && npm run test:html",
+    "test:html": "mocha --recursive test/src",
+    "test:js": "eslint src/**/*.js"
+  },
+  "browserslist": [
+    "last 2 versions",
+    "IE >= 9",
+    "Firefox ESR",
+    "Android >= 2.3"
+  ]
 }
